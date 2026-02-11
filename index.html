@@ -1,164 +1,105 @@
 <!DOCTYPE html>
-<html lang="id">
+<html>
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Auto Valuasi Saham</title>
-
+<title>Auto Valuasi Saham Indonesia</title>
 <style>
-body {
-    font-family: Arial, sans-serif;
-    background:#f4f6f9;
-    margin:0;
-    padding:40px;
-}
-
-.container {
-    max-width:700px;
-    margin:auto;
-    background:white;
-    padding:30px;
-    border-radius:10px;
-    box-shadow:0 4px 10px rgba(0,0,0,0.1);
-}
-
-h2 {
-    text-align:center;
-}
-
-input {
-    width:100%;
-    padding:12px;
-    margin:10px 0;
-    border-radius:6px;
-    border:1px solid #ccc;
-}
-
-button {
-    width:100%;
-    padding:12px;
-    background:#007bff;
-    color:white;
-    border:none;
-    border-radius:6px;
-    font-size:16px;
-    cursor:pointer;
-}
-
-button:hover {
-    background:#0056b3;
-}
-
-.result {
-    margin-top:20px;
-    padding:15px;
-    border-radius:6px;
-    background:#eef2f7;
-}
+body{font-family:Arial;background:#f4f6f9;padding:40px}
+.container{max-width:700px;margin:auto;background:white;padding:30px;border-radius:10px;box-shadow:0 4px 10px rgba(0,0,0,0.1)}
+input,button{width:100%;padding:12px;margin:10px 0;border-radius:6px;border:1px solid #ccc}
+button{background:#007bff;color:white;border:none;font-size:16px}
+button:hover{background:#0056b3}
+.result{margin-top:20px;padding:15px;background:#eef2f7;border-radius:6px}
 </style>
 </head>
-
 <body>
 
 <div class="container">
-<h2>Auto Valuasi Saham</h2>
+<h2>Auto Valuasi Saham BEI</h2>
 
-<label>Kode Saham</label>
-<input type="text" id="symbol" placeholder="Contoh: AAPL atau BBCA">
-
-<button onclick="analisa()">Analisa Otomatis</button>
+<input type="text" id="symbol" placeholder="Contoh: BBCA atau BBRI">
+<button onclick="analisa()">Analisa</button>
 
 <div id="output" class="result"></div>
-
 </div>
 
 <script>
 
+// API KEY ANDA SUDAH DIMASUKKAN DI SINI
 const API_KEY = "T9127G8F7LKAJRQU";
 
 async function analisa(){
 
-    const symbol = document.getElementById("symbol").value.toUpperCase();
+    let symbol = document.getElementById("symbol").value.toUpperCase();
     const output = document.getElementById("output");
 
     if(!symbol){
-        output.innerHTML = "Masukkan kode saham terlebih dahulu.";
+        output.innerHTML = "Masukkan kode saham.";
         return;
     }
 
-    output.innerHTML = "Mengambil data dari server...";
+    symbol = symbol + ".JK"; // otomatis format saham Indonesia
 
-    try {
+    output.innerHTML = "Mengambil data...";
 
-        // Ambil Harga
-        const priceRes = await fetch(
-        `https://www.alphavantage.co/query?function=GLOBAL_QUOTE&symbol=${symbol}&apikey=${API_KEY}`
+    try{
+
+        // Ambil harga
+        const profileRes = await fetch(
+        `https://financialmodelingprep.com/api/v3/profile/${symbol}?apikey=${API_KEY}`
         );
-        const priceData = await priceRes.json();
+        const profileData = await profileRes.json();
 
-        if(!priceData["Global Quote"] || !priceData["Global Quote"]["05. price"]){
-            output.innerHTML = "Data harga tidak ditemukan atau limit API tercapai.";
+        if(profileData.length === 0){
+            output.innerHTML = "Saham tidak ditemukan.";
             return;
         }
 
-        const price = parseFloat(priceData["Global Quote"]["05. price"]);
+        const price = profileData[0].price;
 
-        // Ambil Fundamental
-        const overviewRes = await fetch(
-        `https://www.alphavantage.co/query?function=OVERVIEW&symbol=${symbol}&apikey=${API_KEY}`
+        // Ambil income statement untuk EPS
+        const incomeRes = await fetch(
+        `https://financialmodelingprep.com/api/v3/income-statement/${symbol}?limit=2&apikey=${API_KEY}`
         );
-        const overviewData = await overviewRes.json();
+        const incomeData = await incomeRes.json();
 
-        const eps = overviewData.EPS ? parseFloat(overviewData.EPS) : null;
-        const per = overviewData.PERatio ? parseFloat(overviewData.PERatio) : null;
-        const growth = overviewData.QuarterlyEarningsGrowthYOY 
-            ? parseFloat(overviewData.QuarterlyEarningsGrowthYOY) * 100
-            : null;
-
-        let html = `
-            <b>Kode:</b> ${symbol} <br>
-            <b>Harga:</b> ${price.toFixed(2)} <br><br>
-        `;
-
-        if(eps && per && growth){
-
-            const peg = per / growth;
-            const fairPER = growth;
-            const fairPrice = eps * fairPER;
-
-            let status = "";
-
-            if(price > fairPrice*1.2){
-                status = "SANGAT MAHAL";
-            } else if(price > fairPrice){
-                status = "MAHAL";
-            } else if(price < fairPrice*0.8){
-                status = "MURAH";
-            } else {
-                status = "WAJAR";
-            }
-
-            html += `
-                <b>EPS:</b> ${eps.toFixed(2)} <br>
-                <b>PER:</b> ${per.toFixed(2)} <br>
-                <b>Growth (YoY):</b> ${growth.toFixed(2)}% <br>
-                <b>PEG:</b> ${peg.toFixed(2)} <br><br>
-                <b>Estimasi Harga Wajar:</b> ${fairPrice.toFixed(2)} <br><br>
-                <b>Status:</b> <b>${status}</b>
-            `;
-
-        } else {
-            html += "Data fundamental (EPS / Growth) tidak tersedia untuk saham ini.";
+        if(!incomeData || incomeData.length < 2){
+            output.innerHTML = "Data EPS tidak tersedia.";
+            return;
         }
 
-        output.innerHTML = html;
+        const epsNow = incomeData[0].eps;
+        const epsPrev = incomeData[1].eps;
 
-    } catch(error){
-        output.innerHTML = "Terjadi error koneksi atau limit API tercapai.";
-    }
-}
+        const growth = ((epsNow - epsPrev) / epsPrev) * 100;
+        const per = price / epsNow;
+        const peg = per / growth;
 
-</script>
+        const fairPER = growth;
+        const fairPrice = epsNow * fairPER;
 
-</body>
-</html>
+        let status = "";
+
+        if(price > fairPrice*1.2){
+            status = "SANGAT MAHAL";
+        } else if(price > fairPrice){
+            status = "MAHAL";
+        } else if(price < fairPrice*0.8){
+            status = "MURAH";
+        } else {
+            status = "WAJAR";
+        }
+
+        output.innerHTML = `
+        <b>Kode:</b> ${symbol}<br><br>
+        <b>Harga:</b> ${price.toFixed(2)}<br>
+        <b>EPS Terbaru:</b> ${epsNow.toFixed(2)}<br>
+        <b>Growth EPS:</b> ${growth.toFixed(2)}%<br>
+        <b>PER:</b> ${per.toFixed(2)}<br>
+        <b>PEG:</b> ${peg.toFixed(2)}<br><br>
+        <b>Estimasi Harga Wajar:</b> ${fairPrice.toFixed(2)}<br><br>
+        <b>Status:</b> <b>${status}</b>
+        `;
+
+    }catch(error){
+        output.innerHTML = "Terjadi error koneksi
