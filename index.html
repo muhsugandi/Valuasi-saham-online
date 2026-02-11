@@ -1,33 +1,3 @@
-<!DOCTYPE html>
-<html>
-<head>
-<meta charset="UTF-8">
-<title>Auto Valuasi Saham Pro</title>
-<style>
-body { font-family: Arial; margin:40px; background:#f4f6f9;}
-.container { background:white; padding:25px; border-radius:10px; max-width:650px;}
-input { width:100%; padding:10px; margin:6px 0;}
-button { padding:12px; width:100%; background:#007bff; color:white; border:none; cursor:pointer;}
-.result { margin-top:20px; padding:15px; border-radius:5px;}
-.green { background:#d4edda;}
-.yellow { background:#fff3cd;}
-.red { background:#f8d7da;}
-.loading { color:#007bff; }
-</style>
-</head>
-<body>
-
-<div class="container">
-<h2>Auto Valuasi Saham (Semua Otomatis)</h2>
-
-<label>Kode Saham</label>
-<input type="text" id="symbol" placeholder="Contoh: AAPL atau BBCA">
-
-<button onclick="analisa()">Analisa Otomatis</button>
-
-<div id="output" class="result"></div>
-</div>
-
 <script>
 
 const API_KEY = "T9127G8F7LKAJRQU";
@@ -42,60 +12,73 @@ async function analisa(){
         return;
     }
 
-    output.className = "result loading";
     output.innerHTML = "Mengambil data...";
 
     try {
 
-        // 1️⃣ Ambil harga
         const priceRes = await fetch(
         `https://www.alphavantage.co/query?function=GLOBAL_QUOTE&symbol=${symbol}&apikey=${API_KEY}`
         );
         const priceData = await priceRes.json();
 
-        // 2️⃣ Ambil EPS & Growth
-        const fundamentalRes = await fetch(
-        `https://www.alphavantage.co/query?function=OVERVIEW&symbol=${symbol}&apikey=${API_KEY}`
-        );
-        const fundamentalData = await fundamentalRes.json();
-
         if(!priceData["Global Quote"] || !priceData["Global Quote"]["05. price"]){
-            output.innerHTML = "Kode saham tidak ditemukan atau limit API tercapai.";
+            output.innerHTML = "Data harga tidak ditemukan atau limit API tercapai.";
             return;
         }
 
         const price = parseFloat(priceData["Global Quote"]["05. price"]);
-        const eps = parseFloat(fundamentalData["EPS"]);
-        const per = parseFloat(fundamentalData["PERatio"]);
 
-        // Estimasi Growth dari Quarterly Earnings Growth
-        const growth = fundamentalData["QuarterlyEarningsGrowthYOY"] 
-            ? parseFloat(fundamentalData["QuarterlyEarningsGrowthYOY"]) * 100
-            : 5;
+        const overviewRes = await fetch(
+        `https://www.alphavantage.co/query?function=OVERVIEW&symbol=${symbol}&apikey=${API_KEY}`
+        );
+        const overviewData = await overviewRes.json();
 
-        const peg = per / growth;
+        const eps = overviewData.EPS ? parseFloat(overviewData.EPS) : null;
+        const per = overviewData.PERatio ? parseFloat(overviewData.PERatio) : null;
+        const growth = overviewData.QuarterlyEarningsGrowthYOY 
+            ? parseFloat(overviewData.QuarterlyEarningsGrowthYOY) * 100
+            : null;
 
-        const fairPER = growth; // Rule sederhana: PER = Growth
-        const fairPrice = eps * fairPER;
+        let resultHTML = `
+            <b>Kode:</b> ${symbol} <br>
+            <b>Harga:</b> ${price.toFixed(2)} <br><br>
+        `;
 
-        let status = "";
-        let color = "";
+        if(eps && per && growth){
 
-        if(price > fairPrice*1.2){
-            status = "SANGAT MAHAL";
-            color = "red";
-        } else if(price > fairPrice){
-            status = "MAHAL";
-            color = "red";
-        } else if(price < fairPrice*0.8){
-            status = "MURAH";
-            color = "green";
+            const peg = per / growth;
+            const fairPER = growth;
+            const fairPrice = eps * fairPER;
+
+            let status = "";
+
+            if(price > fairPrice*1.2){
+                status = "SANGAT MAHAL";
+            } else if(price > fairPrice){
+                status = "MAHAL";
+            } else if(price < fairPrice*0.8){
+                status = "MURAH";
+            } else {
+                status = "WAJAR";
+            }
+
+            resultHTML += `
+                <b>EPS:</b> ${eps.toFixed(2)} <br>
+                <b>PER:</b> ${per.toFixed(2)} <br>
+                <b>Growth:</b> ${growth.toFixed(2)}% <br>
+                <b>PEG:</b> ${peg.toFixed(2)} <br><br>
+                <b>Estimasi Harga Wajar:</b> ${fairPrice.toFixed(2)} <br><br>
+                <b>Status:</b> ${status}
+            `;
         } else {
-            status = "WAJAR";
-            color = "yellow";
+            resultHTML += "Data fundamental (EPS / Growth) tidak tersedia untuk saham ini.";
         }
 
-        output.className = "result " + color;
-        output.innerHTML = `
-            <b>Kode:</b> ${symbol} <br><br>
-            <b>Harga:</b> ${
+        output.innerHTML = resultHTML;
+
+    } catch(error){
+        output.innerHTML = "Terjadi error koneksi atau limit API tercapai.";
+    }
+}
+
+</script>
