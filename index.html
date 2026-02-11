@@ -20,4 +20,74 @@ button { padding:10px; width:100%; background:#007bff; color:white; border:none;
 <h2>Auto Valuasi Saham (Semua Otomatis)</h2>
 
 <label>Kode Saham (Yahoo format)</label>
-<input type="text" id="symbol"
+<input type="text" id="symbol" placeholder="Contoh: UNVR.JK">
+<button onclick="hitung()">Analisa Otomatis</button>
+
+<div id="output" class="result"></div>
+</div>
+
+<script>
+
+async function getData(symbol){
+    const url = `https://query1.finance.yahoo.com/v10/finance/quoteSummary/${symbol}?modules=defaultKeyStatistics,financialData`;
+    const response = await fetch(url);
+    const data = await response.json();
+    return data.quoteSummary.result[0];
+}
+
+async function hitung(){
+    const symbol = document.getElementById("symbol").value;
+    const output = document.getElementById("output");
+
+    try {
+        const data = await getData(symbol);
+
+        const price = data.financialData.currentPrice.raw;
+        const eps = data.defaultKeyStatistics.trailingEps.raw;
+        const per = price / eps;
+
+        const growth = data.financialData.earningsGrowth 
+            ? data.financialData.earningsGrowth.raw * 100 
+            : 5;
+
+        const peg = per / growth;
+
+        const fairPER = growth; 
+        const fairPrice = eps * fairPER;
+
+        let status = "";
+        let color = "";
+
+        if(price > fairPrice*1.2){
+            status = "SANGAT MAHAL";
+            color = "red";
+        } else if(price > fairPrice){
+            status = "MAHAL";
+            color = "red";
+        } else if(price < fairPrice*0.8){
+            status = "MURAH";
+            color = "green";
+        } else {
+            status = "WAJAR";
+            color = "yellow";
+        }
+
+        output.className = "result " + color;
+        output.innerHTML = `
+            Harga: ${price.toFixed(2)} <br>
+            EPS: ${eps.toFixed(2)} <br>
+            Growth: ${growth.toFixed(2)}% <br>
+            PER: ${per.toFixed(2)} <br>
+            PEG: ${peg.toFixed(2)} <br>
+            Estimasi Harga Wajar: ${fairPrice.toFixed(2)} <br>
+            Status: <b>${status}</b>
+        `;
+    } catch (error) {
+        output.innerHTML = "Data tidak ditemukan atau saham tidak tersedia.";
+    }
+}
+
+</script>
+
+</body>
+</html>
