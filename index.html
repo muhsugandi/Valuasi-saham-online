@@ -2,40 +2,100 @@
 <html>
 <head>
 <meta charset="UTF-8">
-<title>Kalkulator Valuasi Saham</title>
+<title>Auto Valuasi Saham Pro</title>
 <style>
 body { font-family: Arial; margin:40px; background:#f4f6f9;}
-.container { background:white; padding:25px; border-radius:10px; max-width:600px;}
+.container { background:white; padding:25px; border-radius:10px; max-width:650px;}
 input { width:100%; padding:10px; margin:6px 0;}
-button { padding:10px; width:100%; background:#007bff; color:white; border:none; cursor:pointer;}
+button { padding:12px; width:100%; background:#007bff; color:white; border:none; cursor:pointer;}
 .result { margin-top:20px; padding:15px; border-radius:5px;}
 .green { background:#d4edda;}
 .yellow { background:#fff3cd;}
 .red { background:#f8d7da;}
+.loading { color:#007bff; }
 </style>
 </head>
 <body>
 
 <div class="container">
-<h2>Kalkulator Valuasi Saham Online</h2>
+<h2>Auto Valuasi Saham (Semua Otomatis)</h2>
 
 <label>Kode Saham</label>
 <input type="text" id="symbol" placeholder="Contoh: AAPL atau BBCA">
 
-<label>EPS (Laba per Saham)</label>
-<input type="number" id="eps" placeholder="Masukkan EPS">
-
-<label>Growth (%)</label>
-<input type="number" id="growth" placeholder="Masukkan Growth">
-
-<label>PER Wajar</label>
-<input type="number" id="fairPER" placeholder="Contoh: 15">
-
-<button onclick="hitung()">Analisa</button>
+<button onclick="analisa()">Analisa Otomatis</button>
 
 <div id="output" class="result"></div>
 </div>
 
 <script>
 
-const
+const API_KEY = "T9127G8F7LKAJRQU";
+
+async function analisa(){
+
+    const symbol = document.getElementById("symbol").value.toUpperCase();
+    const output = document.getElementById("output");
+
+    if(!symbol){
+        output.innerHTML = "Masukkan kode saham.";
+        return;
+    }
+
+    output.className = "result loading";
+    output.innerHTML = "Mengambil data...";
+
+    try {
+
+        // 1️⃣ Ambil harga
+        const priceRes = await fetch(
+        `https://www.alphavantage.co/query?function=GLOBAL_QUOTE&symbol=${symbol}&apikey=${API_KEY}`
+        );
+        const priceData = await priceRes.json();
+
+        // 2️⃣ Ambil EPS & Growth
+        const fundamentalRes = await fetch(
+        `https://www.alphavantage.co/query?function=OVERVIEW&symbol=${symbol}&apikey=${API_KEY}`
+        );
+        const fundamentalData = await fundamentalRes.json();
+
+        if(!priceData["Global Quote"] || !priceData["Global Quote"]["05. price"]){
+            output.innerHTML = "Kode saham tidak ditemukan atau limit API tercapai.";
+            return;
+        }
+
+        const price = parseFloat(priceData["Global Quote"]["05. price"]);
+        const eps = parseFloat(fundamentalData["EPS"]);
+        const per = parseFloat(fundamentalData["PERatio"]);
+
+        // Estimasi Growth dari Quarterly Earnings Growth
+        const growth = fundamentalData["QuarterlyEarningsGrowthYOY"] 
+            ? parseFloat(fundamentalData["QuarterlyEarningsGrowthYOY"]) * 100
+            : 5;
+
+        const peg = per / growth;
+
+        const fairPER = growth; // Rule sederhana: PER = Growth
+        const fairPrice = eps * fairPER;
+
+        let status = "";
+        let color = "";
+
+        if(price > fairPrice*1.2){
+            status = "SANGAT MAHAL";
+            color = "red";
+        } else if(price > fairPrice){
+            status = "MAHAL";
+            color = "red";
+        } else if(price < fairPrice*0.8){
+            status = "MURAH";
+            color = "green";
+        } else {
+            status = "WAJAR";
+            color = "yellow";
+        }
+
+        output.className = "result " + color;
+        output.innerHTML = `
+            <b>Kode:</b> ${symbol} <br><br>
+            <b>Harga:</b> ${
