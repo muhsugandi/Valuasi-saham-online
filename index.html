@@ -2,13 +2,13 @@
 <html>
 <head>
 <meta charset="UTF-8">
-<title>Kalkulator Valuasi Saham Online</title>
+<title>Auto Valuasi Saham</title>
 <style>
 body { font-family: Arial; margin:40px; background:#f4f6f9;}
-.container { background:white; padding:25px; border-radius:10px; max-width:500px;}
-input { width:100%; padding:8px; margin:5px 0;}
+.container { background:white; padding:25px; border-radius:10px; max-width:600px;}
+input { width:100%; padding:10px; margin:5px 0;}
 button { padding:10px; width:100%; background:#007bff; color:white; border:none; cursor:pointer;}
-.result { margin-top:20px; padding:10px; border-radius:5px;}
+.result { margin-top:20px; padding:15px; border-radius:5px;}
 .green { background:#d4edda;}
 .yellow { background:#fff3cd;}
 .red { background:#f8d7da;}
@@ -17,77 +17,7 @@ button { padding:10px; width:100%; background:#007bff; color:white; border:none;
 <body>
 
 <div class="container">
-<h2>Kalkulator Valuasi Saham</h2>
+<h2>Auto Valuasi Saham (Semua Otomatis)</h2>
 
 <label>Kode Saham (Yahoo format)</label>
-<input type="text" id="symbol" placeholder="Contoh: UNVR.JK">
-
-<label>EPS</label>
-<input type="number" id="eps">
-
-<label>Growth (%)</label>
-<input type="number" id="growth">
-
-<label>PER Wajar</label>
-<input type="number" id="fairPER">
-
-<button onclick="hitung()">Hitung</button>
-
-<div id="output" class="result"></div>
-</div>
-
-<script>
-async function getPrice(symbol){
-    const url = `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${symbol}`;
-    const response = await fetch(url);
-    const data = await response.json();
-    return data.quoteResponse.result[0].regularMarketPrice;
-}
-
-async function hitung(){
-    const symbol = document.getElementById("symbol").value;
-    const eps = parseFloat(document.getElementById("eps").value);
-    const growth = parseFloat(document.getElementById("growth").value);
-    const fairPER = parseFloat(document.getElementById("fairPER").value);
-    const output = document.getElementById("output");
-
-    try {
-        const price = await getPrice(symbol);
-
-        const per = price / eps;
-        const peg = per / growth;
-        const fairPrice = eps * fairPER;
-
-        let status = "";
-        let color = "";
-
-        if(price > fairPrice*1.2){
-            status = "SANGAT MAHAL";
-            color = "red";
-        } else if(price > fairPrice){
-            status = "MAHAL";
-            color = "red";
-        } else if(price < fairPrice*0.8){
-            status = "MURAH";
-            color = "green";
-        } else {
-            status = "WAJAR";
-            color = "yellow";
-        }
-
-        output.className = "result " + color;
-        output.innerHTML = `
-            Harga Saat Ini: ${price.toFixed(2)} <br>
-            PER: ${per.toFixed(2)} <br>
-            PEG: ${peg.toFixed(2)} <br>
-            Harga Wajar: ${fairPrice.toFixed(2)} <br>
-            Status: <b>${status}</b>
-        `;
-    } catch (error) {
-        output.innerHTML = "Kode saham tidak ditemukan.";
-    }
-}
-</script>
-
-</body>
-</html>
+<input type="text" id="symbol"
