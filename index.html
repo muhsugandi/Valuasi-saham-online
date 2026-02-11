@@ -25,9 +25,6 @@ button:hover{background:#0056b3}
 
 <script>
 
-// API KEY ANDA SUDAH DIMASUKKAN DI SINI
-const API_KEY = "T9127G8F7LKAJRQU";
-
 async function analisa(){
 
     let symbol = document.getElementById("symbol").value.toUpperCase();
@@ -38,45 +35,43 @@ async function analisa(){
         return;
     }
 
-    symbol = symbol + ".JK"; // otomatis format saham Indonesia
+    symbol = symbol + ".JK";
 
-    output.innerHTML = "Mengambil data...";
+    output.innerHTML = "Mengambil data dari Yahoo Finance...";
 
     try{
 
-        // Ambil harga
-        const profileRes = await fetch(
-        `https://financialmodelingprep.com/api/v3/profile/${symbol}?apikey=${API_KEY}`
-        );
-        const profileData = await profileRes.json();
+        const url = `https://query1.finance.yahoo.com/v10/finance/quoteSummary/${symbol}?modules=price,defaultKeyStatistics,financialData`;
 
-        if(profileData.length === 0){
-            output.innerHTML = "Saham tidak ditemukan.";
+        const proxy = `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`;
+
+        const res = await fetch(proxy);
+        const data = await res.json();
+        const json = JSON.parse(data.contents);
+
+        const result = json.quoteSummary.result[0];
+
+        const price = result.price.regularMarketPrice.raw;
+        const eps = result.defaultKeyStatistics.trailingEps.raw;
+
+        if(!eps){
+            output.innerHTML = "EPS tidak tersedia untuk saham ini.";
             return;
         }
 
-        const price = profileData[0].price;
+        const per = price / eps;
 
-        // Ambil income statement untuk EPS
-        const incomeRes = await fetch(
-        `https://financialmodelingprep.com/api/v3/income-statement/${symbol}?limit=2&apikey=${API_KEY}`
-        );
-        const incomeData = await incomeRes.json();
+        // Ambil growth dari earnings trend (jika ada)
+        let growth = 10; // default asumsi 10% jika tidak tersedia
 
-        if(!incomeData || incomeData.length < 2){
-            output.innerHTML = "Data EPS tidak tersedia.";
-            return;
+        if(result.financialData.earningsGrowth){
+            growth = result.financialData.earningsGrowth.raw * 100;
         }
 
-        const epsNow = incomeData[0].eps;
-        const epsPrev = incomeData[1].eps;
-
-        const growth = ((epsNow - epsPrev) / epsPrev) * 100;
-        const per = price / epsNow;
         const peg = per / growth;
 
         const fairPER = growth;
-        const fairPrice = epsNow * fairPER;
+        const fairPrice = eps * fairPER;
 
         let status = "";
 
@@ -93,13 +88,21 @@ async function analisa(){
         output.innerHTML = `
         <b>Kode:</b> ${symbol}<br><br>
         <b>Harga:</b> ${price.toFixed(2)}<br>
-        <b>EPS Terbaru:</b> ${epsNow.toFixed(2)}<br>
-        <b>Growth EPS:</b> ${growth.toFixed(2)}%<br>
+        <b>EPS (TTM):</b> ${eps.toFixed(2)}<br>
         <b>PER:</b> ${per.toFixed(2)}<br>
+        <b>Growth:</b> ${growth.toFixed(2)}%<br>
         <b>PEG:</b> ${peg.toFixed(2)}<br><br>
         <b>Estimasi Harga Wajar:</b> ${fairPrice.toFixed(2)}<br><br>
         <b>Status:</b> <b>${status}</b>
         `;
 
     }catch(error){
-        output.innerHTML = "Terjadi error koneksi
+        output.innerHTML = "Terjadi error mengambil data.";
+        console.log(error);
+    }
+}
+
+</script>
+
+</body>
+</html>
